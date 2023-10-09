@@ -9,10 +9,10 @@ import { onMounted } from 'vue'
 const props = defineProps(['authUser', 'users'])
 
 const messageContainer = ref()
-const chatMessages = ref([])
 const newMessage = ref('')
 
 const receiver = ref({})
+const chatMessages = ref([])
 const userList = ref([...props.users])
 
 onMounted(() => {
@@ -30,9 +30,23 @@ const scrollToLastMessage = () => {
 }
 
 const addMessage = (message) => {
+    chatMessages.value.push(message)
+    scrollToLastMessage()
+}
+
+const addReceiveMessage = (message) => {
     if (message.sender_id == receiver.value.id) {
-        chatMessages.value = chatMessages.value.push(message)
-        // scrollToLastMessage()
+        console.log('opened');
+        chatMessages.value.push(message)
+        scrollToLastMessage()
+    } else {
+        console.log('not open');
+        userList.value = userList.value.map(user => {
+            if (user.id == message.sender_id) {
+                user.new_message_count = (user.new_message_count ?? 0) + 1
+            }
+            return user;
+        })
     }
 }
 
@@ -72,6 +86,7 @@ const fetchOldMessages = (id) => {
     axios.get(`/get-messages/${id}`)
         .then(res => {
             chatMessages.value = res.data
+            receiver.value.new_message_count = null;
             scrollToLastMessage()
         })
 }
@@ -117,8 +132,8 @@ Echo.join('online')
 
 Echo.private(`chat.${props.authUser.id}`)
     .listen('NewMessage', (res) => {
-        // console.log('New Message for me only:', res.message)
-        addMessage(res.message)
+        console.log('New Message for me only:', res.message)
+        addReceiveMessage(res.message)
     })
 
 </script>
@@ -132,7 +147,6 @@ Echo.private(`chat.${props.authUser.id}`)
             <h2 class="text-xl font-semibold leading-tight text-gray-800">Dashboard</h2>
         </template>
 
-        {{ chatMessages }}
         <div class="mx-auto max-w-7xl">
             <div class="grid grid-cols-4">
                 <div class="col-span-1 py-12">
@@ -148,7 +162,9 @@ Echo.private(`chat.${props.authUser.id}`)
                                         <span :class="[user.is_online ? 'text-green-600' : 'text-red-600']">
                                             ({{ user.is_online ? 'Online' : 'Offline' }})
                                         </span>
-                                        <!-- <span>({{ user.messages?.length ?? '...' }})</span> -->
+                                        <span class="px-1 py-0 text-sm text-white bg-red-500 rounded"
+                                            v-if="user.new_message_count">
+                                            {{ user.new_message_count ?? '...' }}</span>
                                     </li>
                                 </ul>
                             </div>
